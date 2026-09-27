@@ -6,6 +6,10 @@ export class Game {
     this.engine = new pkg.Engine(10, 20, () => {});
     this.score = 0;
     this.pending = 0;
+    this.combo = 0;
+    this.comboEvent = 0;
+    this.held = null;
+    this.holdUsed = false;
     this.engine.start();
     this.enter();
   }
@@ -15,6 +19,18 @@ export class Game {
   }
   act(action) {
     const e = this.engine;
+    if (e._gameStatus !== 1) return 0;
+    if (action === 'hold') {
+      if (this.holdUsed) return 0;
+      const current = e._shape.name;
+      if (this.held) {
+        e._shape = new e._shape.constructor({[this.held]:e._shapesSet[this.held]}, 2, 20);
+      } else e._newFigure();
+      this.held = current;
+      this.holdUsed = true;
+      this.enter();
+      return 0;
+    }
     const before = e.state.statistic.countLinesReduced;
     const piece = e._shape;
     if (action === 'drop') {
@@ -25,13 +41,19 @@ export class Game {
     }
     const lines = e.state.statistic.countLinesReduced - before;
     this.score += [0,100,300,500,800][lines] || 0;
-    let attack = [0,0,1,2,4][lines] || 0;
-    const cancel = Math.min(attack, this.pending);
-    attack -= cancel;
-    this.pending -= cancel;
+    let attack = 0;
     if (e._shape !== piece) {
-      if (this.pending) this.garbage(this.pending);
+      this.combo = lines ? this.combo + 1 : 0;
+      if (this.combo >= 2) this.comboEvent++;
+      // Pending attacks are combo units: three units become one garbage row.
+      let power = this.combo >= 2 ? this.combo : 0;
+      const cancel = Math.min(power, this.pending);
+      power -= cancel;
+      this.pending -= cancel;
+      if (this.combo >= 3) attack = power;
+      if (this.pending >= 3) this.garbage(Math.floor(this.pending / 3));
       this.pending = 0;
+      this.holdUsed = false;
       this.enter();
     }
     return attack;
@@ -43,5 +65,16 @@ export class Game {
     if (e._heap.slice(20).some(r=>r.some(c=>c.val))) e._gameStatus = 3;
     e._heap.length = Math.min(20,e._heap.length);
   }
-  snapshot() { return {...this.engine.state,score:this.score,pending:this.pending}; }
+  snapshot() {
+    const e = this.engine;
+    let delta = 0;
+    while (delta > -30 && e._canShapeMove(delta - 1, 0)) delta--;
+    const ghost = [];
+    e._shape.body.forEach((row,y)=>row.forEach((cell,x)=>{
+      if (cell) ghost.push({x:e._getAreaIndexXFromShape(x),y:19-e._getAreaIndexYFromShape(y,delta)});
+    }));
+    return {...e.state,score:this.score,pending:this.pending,ghost,
+      combo:this.combo,comboEvent:this.comboEvent,holdUsed:this.holdUsed,
+      held:this.held?{name:this.held,body:e._shapesSet[this.held]}:null};
+  }
 }

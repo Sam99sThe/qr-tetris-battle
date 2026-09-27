@@ -72,7 +72,7 @@ export function createApp() {
     socket.on('pause',()=>{const r=rooms.get(socket.data.room);if(r&&socket.data.role==='host'&&r.status==='running'){r.status='paused';send(r);}});
     socket.on('input',action=>{
       const r=rooms.get(socket.data.room);
-      if(!r||r.status!=='running'||socket.data.role!=='player'||!['left','right','rotate','down','drop'].includes(action))return;
+      if(!r||r.status!=='running'||socket.data.role!=='player'||!['left','right','rotate','down','drop','hold'].includes(action))return;
       const p=r.players[socket.data.index];const now=Date.now();if(now-p.last<35)return;p.last=now;
       const attack=p.game.act(action);
       if(r.mode===2)r.players[1-socket.data.index].game.pending=Math.min(20,r.players[1-socket.data.index].game.pending+attack);
