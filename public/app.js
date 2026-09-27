@@ -1,4 +1,4 @@
-const app=document.querySelector('#app'), socket=io();
+const app=document.querySelector('#app'), socket=io({transports:['websocket','polling'],tryAllTransports:true});
 const params=new URLSearchParams(location.search);
 const controller=params.has('room');
 let mode=1,credentials=null,state=null,player=null,base=location.origin,screen='',toastTimer;
@@ -32,7 +32,7 @@ function updateQr(){document.querySelectorAll('[data-qr]').forEach(img=>img.src=
 function hostView(){
   const lobby=state.status==='waiting';
   const next=lobby?'lobby':'arena';
-  if(screen!==next){screen=next;app.innerHTML=`<div class="titlebar"><div><p class="eyebrow">${state.mode}P / ${state.mode===1?'SOLO':'BATTLE'}</p><h1>TETRIS BATTLE</h1></div><div class="actions"><span class="room-id">ROOM ${state.id}</span><button id="leave" title="結束房間" aria-label="結束房間">${icon('log-out')}</button><button id="pause" title="暫停" aria-label="暫停">${icon('pause')}</button><button class="primary" id="start">開始遊戲</button></div></div><div class="game-banner" id="banner"></div>${lobby?`<div class="lobby">${state.players.map((_,i)=>`<section class="join-card"><div class="player-head p${i+1}"><span>PLAYER ${i+1}</span><span class="badge" id="online${i}"></span></div><img class="qr" data-qr="${i}" alt="玩家 ${i+1} 控制器 QR code"><button data-copy="${i}">${icon('copy')} 複製控制器連結</button></section>`).join('')}</div><div class="network"><label for="base">手機連線網址</label><input id="base" type="url"><p>本機遊玩時，手機與電腦需使用相同 Wi-Fi。</p></div>`:`<div class="arena ${state.mode===1?'solo':''}">${state.players.map((_,i)=>`<section class="board-wrap"><div class="player-head p${i+1}"><span>PLAYER ${i+1}</span><span class="badge" id="online${i}"></span></div><div class="board-stage"><canvas class="board" id="board${i}" width="300" height="600" aria-label="玩家 ${i+1} 棋盤"></canvas><div class="combo" id="combo${i}" hidden></div><div class="confetti" id="confetti${i}"></div></div><div class="piece-tray"><div>HOLD<canvas id="held${i}" width="100" height="60"></canvas></div><div>NEXT<canvas id="next${i}" width="100" height="60"></canvas></div></div><div class="score-row"><div><span>SCORE</span><strong id="score${i}">0</strong></div><div><span>LINES</span><strong id="lines${i}">0</strong></div><div><span>INCOMING</span><strong id="pending${i}">0</strong></div></div></section>`).join('')}</div>`}`;
+  if(screen!==next){screen=next;app.innerHTML=`<div class="titlebar"><div><p class="eyebrow">${state.mode}P / ${state.mode===1?'SOLO':'BATTLE'}</p><h1>TETRIS BATTLE</h1></div><div class="actions"><span class="room-id">ROOM ${state.id}</span><button id="leave" title="結束房間" aria-label="結束房間">${icon('log-out')}</button><button id="pause" title="暫停" aria-label="暫停">${icon('pause')} 暫停遊戲</button><button class="primary" id="start">開始遊戲</button></div></div><div class="game-banner" id="banner"></div>${lobby?`<div class="lobby">${state.players.map((_,i)=>`<section class="join-card"><div class="player-head p${i+1}"><span>PLAYER ${i+1}</span><span class="badge" id="online${i}"></span></div><img class="qr" data-qr="${i}" alt="玩家 ${i+1} 控制器 QR code"><button data-copy="${i}">${icon('copy')} 複製控制器連結</button></section>`).join('')}</div><div class="network"><label for="base">手機連線網址</label><input id="base" type="url"><p>本機遊玩時，手機與電腦需使用相同 Wi-Fi。</p></div>`:`<div class="arena ${state.mode===1?'solo':''}">${state.players.map((_,i)=>`<section class="board-wrap"><div class="player-head p${i+1}"><span>PLAYER ${i+1}</span><span class="badge" id="online${i}"></span></div><div class="board-stage"><canvas class="board" id="board${i}" width="300" height="600" aria-label="玩家 ${i+1} 棋盤"></canvas><div class="combo" id="combo${i}" hidden></div><div class="confetti" id="confetti${i}"></div></div><div class="piece-tray"><div>HOLD<canvas id="held${i}" width="100" height="60"></canvas></div><div>NEXT<canvas id="next${i}" width="100" height="60"></canvas></div></div><div class="score-row"><div><span>SCORE</span><strong id="score${i}">0</strong></div><div><span>LINES</span><strong id="lines${i}">0</strong></div><div><span>INCOMING</span><strong id="pending${i}">0</strong></div></div></section>`).join('')}</div>`}`;
     document.querySelector('#start').onclick=()=>socket.emit('start',{},ack);
     document.querySelector('#pause').onclick=()=>socket.emit('pause');
     document.querySelector('#leave').onclick=()=>{if(confirm('結束目前房間？'))socket.emit('closeRoom');};
@@ -47,8 +47,8 @@ function hostView(){
 }
 function draw(canvas,game){
  const c=canvas.getContext('2d');c.fillStyle='#0b0f11';c.fillRect(0,0,300,600);
- game.body.forEach((row,y)=>row.forEach((cell,x)=>{c.strokeStyle='#1d272a';c.lineWidth=1;c.strokeRect(x*30,y*30,30,30);if(cell.val){c.fillStyle=colors[cell.cssClasses.filter(Boolean).at(-1)]||'#758285';c.fillRect(x*30+1,y*30+1,28,28);c.fillStyle='#ffffff50';c.fillRect(x*30+4,y*30+4,22,3);}}));
- c.strokeStyle='#a3aaae';c.lineWidth=2;(game.ghost||[]).forEach(({x,y})=>{if(y>=0&&y<20&&!game.body[y][x].val)c.strokeRect(x*30+3,y*30+3,24,24);});
+ game.body.forEach((row,y)=>row.forEach((cell,x)=>{c.strokeStyle='#1d272a';c.lineWidth=1;c.strokeRect(x*30,y*30,30,30);if(typeof cell==='number'?cell!==0:cell.val){c.fillStyle=colors[typeof cell==='number'?game.palette[cell]:cell.cssClasses.filter(Boolean).at(-1)]||'#758285';c.fillRect(x*30+1,y*30+1,28,28);c.fillStyle='#ffffff50';c.fillRect(x*30+4,y*30+4,22,3);}}));
+ c.strokeStyle='#a3aaae';c.lineWidth=2;(game.ghost||[]).forEach(({x,y})=>{if(y>=0&&y<20&&!(typeof game.body[y][x]==='number'?game.body[y][x]:game.body[y][x].val))c.strokeRect(x*30+3,y*30+3,24,24);});
 }
 function preview(canvas,piece){
  const c=canvas.getContext('2d');c.clearRect(0,0,100,60);if(!piece)return;
@@ -60,7 +60,7 @@ function preview(canvas,piece){
 function showCombo(i,g){
  const el=document.querySelector('#combo'+i);
  if(!g.comboEvent){el.dataset.event='0';el.hidden=true;clearTimeout(comboTimers.get(i));}
- if(g.combo>=2&&el.dataset.event!==String(g.comboEvent)){el.dataset.event=g.comboEvent;el.textContent='COMBO '+g.combo+'x';el.hidden=false;clearTimeout(comboTimers.get(i));comboTimers.set(i,setTimeout(()=>el.hidden=true,1500));}
+ if(g.combo>=3&&el.dataset.event!==String(g.comboEvent)){el.dataset.event=g.comboEvent;el.textContent='COMBO '+g.combo+'x';el.hidden=false;clearTimeout(comboTimers.get(i));comboTimers.set(i,setTimeout(()=>el.hidden=true,800));}
 }
 function celebrate(){
  if(state.status!=='over'){celebrated=false;document.querySelectorAll('.confetti').forEach(el=>el.replaceChildren());return;}
@@ -74,7 +74,7 @@ function controllerView(){
  document.body.classList.add('controller-page');
  if(screen!=='controller'){
  screen='controller';app.innerHTML=`<section class="controller"><div class="controller-top"><h1 id="playerLabel">手機控制器</h1><p id="status">正在連線</p><button id="fullscreen" title="全螢幕橫屏" aria-label="全螢幕橫屏">${icon('maximize')}</button></div><div class="controller-controls"><div class="pad"><button class="rotate" data-action="rotate" aria-label="旋轉" title="旋轉">${icon('arrow-up')}</button><button class="left" data-action="left" aria-label="左移" title="左移">${icon('arrow-left')}</button><button class="down" data-action="down" aria-label="加速下降" title="加速下降">${icon('arrow-down')}</button><button class="right" data-action="right" aria-label="右移" title="右移">${icon('arrow-right')}</button></div><div class="right-pad"><button data-action="hold" class="hold">${icon('archive')} 保留方塊<canvas id="phoneHeld" width="100" height="60"></canvas></button><button class="drop" data-action="drop">${icon('arrow-down-to-line')} 快速降落</button></div></div><div class="controller-footer" id="roomLabel"></div></section>`;icons();landscape();document.querySelector('#fullscreen').onclick=fullscreen;
- document.querySelectorAll('[data-action]').forEach(b=>{let repeat;const stop=()=>{clearInterval(repeat);b.classList.remove('pressed');};stops.push(stop);b.onpointerdown=e=>{if(b.disabled)return;e.preventDefault();b.setPointerCapture(e.pointerId);stop();b.classList.add('pressed');socket.emit('input',b.dataset.action);landscape();if(['left','right','down'].includes(b.dataset.action))repeat=setInterval(()=>{if(!b.disabled)socket.emit('input',b.dataset.action);},105);};b.onpointerup=stop;b.onpointercancel=stop;b.onlostpointercapture=stop;});
+ document.querySelectorAll('[data-action]').forEach(b=>{let repeat;const stop=()=>{clearInterval(repeat);b.classList.remove('pressed');};stops.push(stop);b.onpointerdown=e=>{if(b.disabled)return;e.preventDefault();b.setPointerCapture(e.pointerId);stop();b.classList.add('pressed');if(socket.connected)socket.emit('input',b.dataset.action);try{navigator.vibrate?.(12);}catch{}if(['left','right','down'].includes(b.dataset.action))repeat=setInterval(()=>{if(!b.disabled&&socket.connected)socket.volatile.emit('input',b.dataset.action);},105);};b.onpointerup=stop;b.onpointercancel=stop;b.onlostpointercapture=stop;});
  window.addEventListener('blur',()=>stops.forEach(f=>f()));document.addEventListener('visibilitychange',()=>{if(document.hidden)stops.forEach(f=>f());});
  }
  document.querySelector('#playerLabel').textContent=player===null?'手機控制器':`PLAYER ${player+1}`;
@@ -91,7 +91,12 @@ socket.on('connect',async()=>{
     try{const net=await fetch('/api/network').then(r=>r.json());base=net.publicUrl||(['localhost','127.0.0.1'].includes(location.hostname)?net.addresses[0]||location.origin:location.origin);if(screen==='lobby'){document.querySelector('#base').value=base;updateQr();}}catch{}
   }
 });
-socket.on('state',s=>{state=s;if(controller)controllerView();else {hostView();celebrate();}});
+let renderFrame=0;
+socket.on('state',s=>{
+  state=s;
+  if(controller)controllerView();
+  else if(!renderFrame)renderFrame=requestAnimationFrame(()=>{renderFrame=0;if(state){hostView();celebrate();}});
+});
 socket.on('disconnect',()=>{document.querySelector('#connection').textContent='重新連線中';document.querySelector('#connection').classList.remove('online');if(controller)controllerView();else document.querySelectorAll('#start,#create').forEach(b=>b.disabled=true);});
 socket.on('closed',()=>{sessionStorage.removeItem('host');state=null;credentials=null;if(controller){controllerView();document.querySelector('#status').textContent='房間已結束，請重新掃描 QR code';}else location.reload();});
 if(controller)controllerView();
