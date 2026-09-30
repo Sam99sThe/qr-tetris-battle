@@ -60,7 +60,7 @@ function preview(canvas,piece){
 function showCombo(i,g){
  const el=document.querySelector('#combo'+i);
  if(!g.comboEvent){el.dataset.event='0';el.hidden=true;clearTimeout(comboTimers.get(i));}
- if(g.combo>=3&&el.dataset.event!==String(g.comboEvent)){el.dataset.event=g.comboEvent;el.textContent='COMBO '+g.combo+'x';el.hidden=false;clearTimeout(comboTimers.get(i));comboTimers.set(i,setTimeout(()=>el.hidden=true,800));}
+ if(g.combo>=2&&el.dataset.event!==String(g.comboEvent)){el.dataset.event=g.comboEvent;el.textContent='COMBO '+g.combo+'x';el.hidden=false;clearTimeout(comboTimers.get(i));comboTimers.set(i,setTimeout(()=>el.hidden=true,800));}
 }
 function celebrate(){
  if(state.status!=='over'){celebrated=false;document.querySelectorAll('.confetti').forEach(el=>el.replaceChildren());return;}

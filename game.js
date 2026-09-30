@@ -45,13 +45,12 @@ export class Game {
     if (e._shape !== piece) {
       this.combo = lines ? this.combo + 1 : 0;
       if (this.combo >= 2) this.comboEvent++;
-      // Pending attacks are combo units: three units become one garbage row.
-      let power = this.combo >= 2 ? this.combo : 0;
-      const cancel = Math.min(power, this.pending);
-      power -= cancel;
-      this.pending -= cancel;
-      if (this.combo >= 3) attack = power;
-      if (this.pending >= 3) this.garbage(Math.floor(this.pending / 3));
+      // First single/double clears do not attack. Every later clear uses
+      // (lines - 1) * consecutive clearing pieces, measured in garbage rows.
+      if (lines && !(this.combo === 1 && lines <= 2)) {
+        attack = Math.max(0, (lines - 1) * this.combo);
+      }
+      if (this.pending > 0) this.garbage(this.pending);
       this.pending = 0;
       this.holdUsed = false;
       this.enter();
